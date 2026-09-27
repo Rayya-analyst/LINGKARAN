@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Bukti Interaktif: Sudut Pusat &amp; Sudut Keliling Lingkaran</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<style>
+  :root{
+    --bg-1:#0a0d18;
+    --bg-2:#141c31;
+    --glass-bg: rgba(20,26,44,0.55);
+    --glass-bg-strong: rgba(20,26,44,0.68);
+    --glass-border: rgba(255,255,255,0.09);
+    --text-primary:#eef1f8;
+    --text-secondary:#8e98b3;
+    --accent-gold:#e8a33d;
+    --accent-gold-soft: rgba(232,163,61,0.16);
+    --accent-green:#34d399;
+    --accent-green-soft: rgba(52,211,153,0.16);
+    --accent-cyan:#22d3ee;
+    --accent-red:#ff4d5e;
+    --radius-card:20px;
+    --radius-btn:10px;
+    --shadow-card: 0 24px 60px -24px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04) inset;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    /* Pewarnaan sinkron teks <-> objek 3D */
+    --clr-central: #ffa500;       /* sudut pusat BOC & juringnya (oranye) */
+    --clr-central-glow: #ffd700;  /* busur BC yang ditebalkan (emas bright) */
+    --clr-inscribed: #00ff88;     /* sudut keliling BAC & juringnya (hijau menyala) */
+    --clr-radius: #00e5ff;        /* jari-jari OA/OB/OC & sudut alas OAB/OBA (cyan) */
+    --clr-ad: #ff007f;            /* garis bantu diameter AD (pink/merah) */
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    overflow:hidden;
+    background: radial-gradient(ellipse at 28% 18%, var(--bg-2), var(--bg-1) 68%);
+    color: var(--text-primary);
+    font-family: var(--font);
+    -webkit-font-smoothing:antialiased;
+  }
+  #canvas-container{
+    position: fixed; inset:0; z-index:1;
+  }
+  #canvas-container canvas{ display:block; touch-action:none; }
+
+  .ui-overlay{
+    position: fixed; inset:0; z-index:10;
+    pointer-events:none;
+    display:flex; flex-direction:column; justify-content:space-between;
+    padding: max(16px, env(safe-area-inset-top,0px)) 16px max(16px, env(safe-area-inset-bottom,0px)) 16px;
+    gap:14px;
+  }
+
+  .card{
+    pointer-events:auto;
+    background: var(--glass-bg);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* ---------- Warna teks tersinkron objek 3D ---------- */
+  .clr-c{ color: var(--clr-central); font-weight:700; }
+  .clr-i{ color: var(--clr-inscribed); font-weight:700; }
+  .clr-r{ color: var(--clr-radius); font-weight:700; }
+  .clr-d{ color: var(--clr-ad); font-weight:700; }
+  .clr-g{ color: var(--clr-central-glow); font-weight:700; }
+
+  /* ---------- Info / readout card ---------- */
+  .info-card{
+    align-self:flex-start;
+    width:min(380px, 92vw);
+    padding: 18px 20px 20px;
+    max-height: calc(100vh - 190px);
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .info-card::-webkit-scrollbar{ width:6px; }
+  .info-card::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:99px; }
+  .info-card h1{
+    font-size: clamp(13.5px, 3.4vw, 15px);
+    font-weight:700;
+    letter-spacing:0.1px;
+    margin:0;
+    display:flex; align-items:center; gap:8px;
+    color: var(--text-primary);
+  }
+  .badge-dot{ width:8px; height:8px; border-radius:50%; background:var(--accent-gold); box-shadow:0 0 10px var(--accent-gold); flex-shrink:0; }
+
+  .info-header{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+
+  .readout-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:9px 0; border-top:1px solid rgba(255,255,255,0.06);
+  }
+  .readout-row:first-of-type{ border-top:none; padding-top:2px; }
+  .readout-label{ font-size:12.5px; color:var(--text-secondary); font-weight:500; }
+  .readout-value{
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(20px, 5vw, 26px);
+    font-weight:800; letter-spacing:-0.5px;
+  }
+
+  .formula-box{
+    margin-top:12px; padding:13px 14px;
+    border-radius:14px;
+    background: rgba(255,255,255,0.045);
+    border:1px solid rgba(255,255,255,0.07);
+  }
+  .formula-box .formula-main{
+    font-size: clamp(12.5px, 3.2vw, 14px);
+    line-height:1.5; color:var(--text-primary); font-weight:500;
+    font-variant-numeric: tabular-nums;
+  }
+  .formula-box .ratio-check{
+    margin-top:8px; font-size:11.5px; line-height:1.5;
+    color:var(--accent-green); display:flex; gap:6px; align-items:flex-start;
+  }
+
+  .base-angle-module{
+    margin-top:11px; padding:12px 13px; border-radius:14px;
+    background: rgba(0,229,255,0.06); border:1px solid rgba(0,229,255,0.18);
+  }
+  .base-angle-module .bam-title{ font-size:11.5px; font-weight:600; color:var(--text-primary); margin-bottom:8px; }
+  .base-angle-module .bam-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:12.5px; padding:3px 0; font-variant-numeric: tabular-nums; color:var(--text-secondary);
+  }
+  .base-angle-module .bam-row b{ font-weight:700; }
+  .base-angle-module .bam-formula{
+    margin-top:7px; padding-top:7px; border-top:1px dashed rgba(0,229,255,0.2);
+    font-size:10.5px; color:var(--text-secondary); font-variant-numeric: tabular-nums; line-height:1.5;
+  }
+
+  .shared-arc-note{
+    margin-top:11px; display:flex; gap:7px; align-items:flex-start;
+    font-size:11.5px; line-height:1.5; color:var(--text-secondary);
+  }
+  .shared-arc-note .dot{ width:8px;height:8px;border-radius:50%; background:var(--clr-central-glow); box-shadow:0 0 8px var(--clr-central-glow); margin-top:3px; flex-shrink:0; }
+
+  .kondisi-desc{
+    margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);
+    font-size:12px; line-height:1.55; color:var(--text-secondary);
+  }
+  .kondisi-desc b{ color:var(--text-primary); font-weight:600; }
+
+  .condition-proof{
+    margin-top:11px; padding-top:11px; border-top:1px solid rgba(255,255,255,0.06);
+  }
+  .condition-proof .cp-title{ font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:7px; }
+  .condition-proof .cp-line{
+    font-size:12px; line-height:1.65; color:var(--text-secondary); margin-bottom:5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .condition-proof .cp-line.result{
+    color:var(--text-primary); padding-top:6px; margin-top:2px;
+    border-top:1px dashed rgba(255,255,255,0.09);
+  }
+
+  .step-breakdown{
+    margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.06);
+  }
+  .step-breakdown .step-title{
+    font-size:11.5px; font-weight:700; color:var(--text-primary); margin-bottom:7px;
+  }
+  .step-breakdown .step-line{
+    font-size:12px; line-height:1.65; color:var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  .step-breakdown .step-line .step-num{ color:var(--accent-cyan); font-weight:700; margin-right:3px; }
+  .step-breakdown .step-line.result{ color:var(--text-primary); }
+  .step-breakdown .step-note{
+    margin-top:8px; font-size:11px; line-height:1.55; color:var(--text-secondary); opacity:0.9;
+  }
+
+  .accordion-item{ margin-top:12px; padding-top:11px; border-top:1px solid rgba(255,255,255,0.06); }
+  .accordion-header{
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none;
+    padding:2px 0;
+  }
+  .accordion-header .accordion-title{ font-size:12.5px; font-weight:700; color:var(--text-primary); }
+  .accordion-header .accordion-chevron{
+    font-size:11px; color:var(--text-secondary); transition: transform .25s ease; flex-shrink:0; margin-left:8px;
+  }
+  .accordion-header.open .accordion-chevron{ transform:rotate(180deg); }
+  .accordion-content{ padding-top:10px; }
+  .accordion-stage{ display:flex; gap:9px; padding:8px 0; border-top:1px dashed rgba(255,255,255,0.07); }
+  .accordion-stage:first-child{ border-top:none; padding-top:2px; }
+  .stage-num-badge{
+    flex-shrink:0; width:20px; height:20px; border-radius:50%; margin-top:1px;
+    background:rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:center;
+    font-size:10.5px; font-weight:700; color:var(--text-secondary);
+  }
+  .stage-text{ font-size:11.5px; line-height:1.6; color:var(--text-secondary); }
+  .stage-text b{ color:var(--text-primary); font-weight:600; }
+
+  /* ---------- Control deck ---------- */
+  .control-card{
+    align-self:center;
+    width:min(700px, 94vw);
+    padding: 14px 18px 18px;
+  }
+  .deck-header{
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .deck-header h2{
+    font-size:11.5px; font-weight:700; letter-spacing:0.3px;
+    color:var(--text-secondary); margin:0;
+  }
+  .hint-text{ font-size:10.5px; color:var(--text-secondary); opacity:0.8; margin-top:2px; }
+  .collapse-btn{
+    display:flex; flex-shrink:0;
+    width:30px; height:30px; border-radius:9px; border:1px solid var(--glass-border);
+    background:rgba(255,255,255,0.04); color:var(--text-secondary);
+    align-items:center; justify-content:center; font-size:14px; cursor:pointer;
+    transition: background .18s, color .18s, border-color .18s;
+  }
+  .collapse-btn:hover{ background:rgba(255,255,255,0.09); color:var(--text-primary); }
+  .collapse-btn.is-hidden{ color:var(--accent-gold); border-color:rgba(232,163,61,0.4); background:var(--accent-gold-soft); }
+
+  .deck-body{ overflow:hidden; transition: max-height .3s ease, opacity .25s ease; max-height:900px; opacity:1; }
+  .deck-body.collapsed{ max-height:0; opacity:0; }
+
+  .slider-row{ margin-top:14px; }
+  .slider-row .slider-label-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-bottom:9px;
+  }
+  .slider-row label{ font-size:12.5px; color:var(--text-secondary); font-weight:500; }
+  .slider-row .angle-live{
+    color:var(--text-primary); font-weight:700; font-variant-numeric: tabular-nums; font-size:13.5px;
+  }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:6px; border-radius:999px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-gold));
+    outline:none; cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+    background:#fff; border:3px solid var(--accent-gold); cursor:grab;
+    box-shadow:0 2px 10px rgba(0,0,0,0.5);
+  }
+  input[type=range]::-webkit-slider-thumb:active{ cursor:grabbing; }
+  input[type=range]::-moz-range-thumb{
+    width:20px; height:20px; border-radius:50%; background:#fff;
+    border:3px solid var(--accent-gold); cursor:grab;
+    box-shadow:0 2px 10px rgba(0,0,0,0.5);
+  }
+
+  .calc-row{ margin-top:14px; padding-top:13px; border-top:1px solid rgba(255,255,255,0.07); }
+  .calc-row-label{
+    font-size:10px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase;
+    color:var(--text-secondary); margin-bottom:9px;
+  }
+  .calc-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .input-group label{ display:block; font-size:11.5px; color:var(--text-secondary); margin-bottom:6px; font-weight:500; }
+  .input-with-unit{
+    display:flex; align-items:center; gap:6px;
+    background: rgba(255,255,255,0.045); border:1px solid rgba(255,255,255,0.09);
+    border-radius:10px; padding:8px 10px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input-with-unit:focus-within{ border-color: var(--accent-gold); box-shadow: 0 0 0 3px rgba(232,163,61,0.15); }
+  .input-with-unit input[type=number]{
+    flex:1; width:100%; min-width:0; background:transparent; border:none; outline:none;
+    color:var(--text-primary); font-family:inherit; font-size:15px; font-weight:700;
+    font-variant-numeric: tabular-nums; -moz-appearance:textfield;
+  }
+  .input-with-unit input[type=number]::-webkit-outer-spin-button,
+  .input-with-unit input[type=number]::-webkit-inner-spin-button{ opacity:0.55; }
+  .input-with-unit span{ color:var(--text-secondary); font-size:13px; font-weight:600; flex-shrink:0; }
+  .range-hint{ margin-top:5px; font-size:9.8px; color:var(--text-secondary); opacity:0.75; }
+  @media (max-width: 400px){ .calc-grid{ grid-template-columns:1fr; } }
+
+  .presets-row{ display:flex; gap:8px; margin-top:16px; flex-wrap:wrap; }
+  .preset-btn{
+    flex:1 1 0; min-width:96px; padding:9px 8px; text-align:center;
+    border-radius: var(--radius-btn); border:1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03); color:var(--text-secondary);
+    cursor:pointer; transition: background .18s, color .18s, border-color .18s;
+    font-family:inherit;
+  }
+  .preset-btn:hover{ background:rgba(255,255,255,0.065); }
+  .preset-btn.active{
+    background: var(--accent-gold-soft); color:var(--accent-gold);
+    border-color: rgba(232,163,61,0.4);
+  }
+  .preset-btn .pb-title{ display:block; font-size:12px; font-weight:700; }
+  .preset-btn .pb-sub{ display:block; font-size:9.8px; font-weight:500; opacity:0.8; margin-top:2px; }
+
+  .actions-row{ display:flex; gap:8px; margin-top:13px; }
+  .action-btn{
+    flex:1; padding:10px 8px; border-radius: var(--radius-btn);
+    border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03);
+    color:var(--text-primary); font-size:12.5px; font-weight:600; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    font-family:inherit; transition: background .18s, color .18s, border-color .18s;
+  }
+  .action-btn:hover{ background:rgba(255,255,255,0.075); }
+  .action-btn.playing{
+    background: var(--accent-green-soft); color:var(--accent-green);
+    border-color: rgba(52,211,153,0.4);
+  }
+
+  @media (max-width: 620px){
+    .ui-overlay{ padding:12px; gap:10px; }
+    .info-card{ padding:15px 16px 17px; }
+    .control-card{ padding:12px 14px 14px; }
+    .preset-btn{ min-width: 30%; }
+  }
+  @media (max-height: 560px){
+    .kondisi-desc, .shared-arc-note{ display:none; }
+  }
+
+  ::selection{ background: var(--accent-gold); color:#12100a; }
+</style>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <div class="ui-overlay">
+    <div class="card info-card" id="infoCard">
+      <div class="info-header">
+        <h1><span class="badge-dot"></span>Bukti Sudut Pusat &amp; Sudut Keliling</h1>
+        <button class="collapse-btn" id="infoCollapseBtn" aria-label="Sembunyikan/tampilkan panel info" title="Sembunyikan panel">&#9662;</button>
+      </div>
+
+      <div class="deck-body" id="infoBody">
+        <div class="readout-row">
+          <span class="readout-label">Sudut Pusat &ang;BOC</span>
+          <span class="readout-value clr-c" id="valCentral">90.0&deg;</span>
+        </div>
+        <div class="readout-row">
+          <span class="readout-label">Sudut Keliling &ang;BAC</span>
+          <span class="readout-value clr-i" id="valInscribed">45.0&deg;</span>
+        </div>
+
+        <div class="formula-box">
+          <div class="formula-main" id="formulaText"><span class="clr-c">&ang;BOC</span> = 2 &times; <span class="clr-i">&ang;BAC</span> &nbsp;&#10142;&nbsp; 90.0&deg; = 2 &times; 45.0&deg;</div>
+          <div class="ratio-check" id="ratioCheck">&#10003;&nbsp; Rasio &ang;BOC / &ang;BAC = 2.00 &mdash; selalu tepat setengah untuk posisi B mana pun.</div>
+        </div>
+
+        <div class="base-angle-module">
+          <div class="bam-title">Segitiga <span class="clr-r">&Delta;AOB</span> (OA = OB = r &rarr; sama kaki)</div>
+          <div class="bam-row"><span>&ang;AOB</span><b id="bamAOB">90.0&deg;</b></div>
+          <div class="bam-row clr-r"><span class="clr-r">&ang;OAB = &ang;OBA</span><b id="bamBase">45.0&deg;</b></div>
+          <div class="bam-formula">&ang;OAB = &ang;OBA = (180&deg; &minus; <span id="bamAOB2">90.0&deg;</span>) &divide; 2 = <span id="bamBase2">45.0&deg;</span></div>
+        </div>
+
+        <div class="shared-arc-note">
+          <span class="dot"></span>
+          <span>Busur <span class="clr-g">BC</span> yang disorot emas adalah busur yang sama&mdash;dihadap oleh kedua sudut ini sekaligus.</span>
+        </div>
+
+        <div class="kondisi-desc" id="kondisiDesc"><b>Kondisi 1:</b> Pusat lingkaran O terletak pada kaki sudut keliling &mdash; garis AC adalah diameter yang melewati O. Ini adalah kasus dasar pembuktian.</div>
+
+        <div class="condition-proof" id="conditionProof">
+          <div class="cp-title">Pembuktian Langsung (Kondisi 1)</div>
+          <div class="cp-line">Karena OA = OB = r, segitiga <span class="clr-r">&Delta;AOB</span> sama kaki, sehingga <span class="clr-r">&ang;OAB = &ang;OBA</span> = 45.0&deg;.</div>
+          <div class="cp-line"><span class="clr-c">&ang;BOC</span> adalah sudut luar segitiga AOB di titik O, maka: <span class="clr-c">&ang;BOC</span> = <span class="clr-r">&ang;OAB + &ang;OBA</span> = 2&times;45.0&deg; = 90.0&deg;.</div>
+          <div class="cp-line result">Karena <span class="clr-r">&ang;OAB</span> = <span class="clr-i">&ang;BAC</span>, terbukti: <span class="clr-c">&ang;BOC</span> = 2&times;<span class="clr-i">&ang;BAC</span> = 90.0&deg;.</div>
+        </div>
+
+        <div class="step-breakdown" id="stepBreakdown">
+          <div class="step-title">Diketahui: &ang;BOC = 90.0&deg; (sudut pusat)</div>
+          <div class="step-line"><span class="step-num">1.</span> Rumus dasar: &ang;BAC = &frac12; &times; &ang;BOC</div>
+          <div class="step-line"><span class="step-num">2.</span> Substitusi: &ang;BAC = &frac12; &times; 90.0&deg;</div>
+          <div class="step-line result"><span class="step-num">3.</span> Hasil: &ang;BAC = <b>45.0&deg;</b></div>
+          <div class="step-note">&Delta;AOB sama kaki karena OA = OB = OC = R (jari-jari lingkaran), sehingga &ang;OAB = &ang;OBA. Sifat inilah dasar geometris hubungan &ang;BOC = 2 &times; &ang;BAC.</div>
+        </div>
+
+        <div class="accordion-item">
+          <div class="accordion-header" id="accordionHeader">
+            <span class="accordion-title">&#128269; Alur Logika Pembuktian Geometri</span>
+            <span class="accordion-chevron">&#9662;</span>
+          </div>
+          <div class="deck-body collapsed" id="accordionBody">
+            <div class="accordion-content">
+              <div class="accordion-stage">
+                <div class="stage-num-badge">1</div>
+                <div class="stage-text"><b>Identifikasi Jari-jari.</b> <span class="clr-r">OA = OB = r</span> &mdash; kedua ruas garis adalah jari-jari lingkaran yang sama panjang.</div>
+              </div>
+              <div class="accordion-stage">
+                <div class="stage-num-badge">2</div>
+                <div class="stage-text"><b>Teorema Segitiga Sama Kaki.</b> Karena dua sisi segitiga <span class="clr-r">&Delta;AOB</span> sama panjang, sudut di hadapan masing-masing sisi juga sama besar: <span class="clr-r">&ang;OAB = &ang;OBA</span>.</div>
+              </div>
+              <div class="accordion-stage">
+                <div class="stage-num-badge">3</div>
+                <div class="stage-text"><b>Teorema Sudut Luar Segitiga.</b> <span class="clr-c">&ang;BOC</span> adalah sudut luar segitiga AOB pada titik O (karena A, O, C segaris pada diameter), sehingga sama dengan jumlah dua sudut dalam yang tidak berpelurus dengannya: <span class="clr-c">&ang;BOC</span> = <span class="clr-r">&ang;OAB + &ang;OBA</span>.</div>
+              </div>
+              <div class="accordion-stage">
+                <div class="stage-num-badge">4</div>
+                <div class="stage-text"><b>Substitusi Aljabar.</b> Karena <span class="clr-r">&ang;OAB = &ang;OBA</span>, maka <span class="clr-c">&ang;BOC</span> = 2&times;<span class="clr-r">&ang;OAB</span>. Karena O berada pada sisi AC, <span class="clr-r">&ang;OAB</span> = <span class="clr-i">&ang;BAC</span>, sehingga terbukti: <span class="clr-c">&ang;BOC</span> = 2&times;<span class="clr-i">&ang;BAC</span>.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card control-card" id="controlCard">
+      <div class="deck-header">
+        <div>
+          <h2>PANEL KONTROL</h2>
+          <div class="hint-text">Seret bola merah (B) di lingkaran, atau gunakan slider.</div>
+        </div>
+        <button class="collapse-btn" id="collapseBtn" aria-label="Buka/tutup panel" title="Sembunyikan panel">&#9662;</button>
+      </div>
+
+      <div class="deck-body" id="deckBody">
+        <div class="slider-row">
+          <div class="slider-label-row">
+            <label for="thetaSlider">Posisi Titik B (&theta;)</label>
+            <span class="angle-live" id="sliderReadout">90&deg;</span>
+          </div>
+          <input type="range" id="thetaSlider" min="0" max="180" step="0.5" value="90">
+        </div>
+
+        <div class="calc-row">
+          <div class="calc-row-label">Kalkulator Sudut &mdash; ketik nilai, titik B ikut bergerak</div>
+          <div class="calc-grid">
+            <div class="input-group">
+              <label for="inputCentral">Sudut Pusat &ang;BOC</label>
+              <div class="input-with-unit">
+                <input type="number" id="inputCentral" step="0.1" value="90.0" inputmode="decimal">
+                <span>&deg;</span>
+              </div>
+              <div class="range-hint" id="rangeHintCentral">rentang: 6.0&deg;&ndash;174.0&deg;</div>
+            </div>
+            <div class="input-group">
+              <label for="inputInscribed">Sudut Keliling &ang;BAC</label>
+              <div class="input-with-unit">
+                <input type="number" id="inputInscribed" step="0.1" value="45.0" inputmode="decimal">
+                <span>&deg;</span>
+              </div>
+              <div class="range-hint" id="rangeHintInscribed">rentang: 3.0&deg;&ndash;87.0&deg;</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="presets-row" id="presetsRow">
+          <button class="preset-btn active" data-preset="1">
+            <span class="pb-title">Kondisi 1</span>
+            <span class="pb-sub">O di kaki sudut</span>
+          </button>
+          <button class="preset-btn" data-preset="2">
+            <span class="pb-title">Kondisi 2</span>
+            <span class="pb-sub">O di dalam sudut</span>
+          </button>
+          <button class="preset-btn" data-preset="3">
+            <span class="pb-title">Kondisi 3</span>
+            <span class="pb-sub">O di luar sudut</span>
+          </button>
+        </div>
+
+        <div class="actions-row">
+          <button class="action-btn" id="playBtn">&#9654; Animasikan</button>
+          <button class="action-btn" id="resetViewBtn">&#8635; Reset View</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ======================================================================
+     KONSTANTA & STATE GLOBAL
+  ====================================================================== */
+  const R = 5;                     // jari-jari lingkaran utama
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const PRESETS = {
+    1: {
+      a: 180, c: 0, rangeStart: 6, rangeEnd: 174, showD: false,
+      desc: '<b>Kondisi 1:</b> Pusat lingkaran O terletak pada kaki sudut keliling &mdash; garis AC adalah diameter yang melewati O. Ini adalah kasus dasar pembuktian.'
+    },
+    2: {
+      a: 90, c: 340, rangeStart: 145, rangeEnd: 260, showD: true,
+      desc: '<b>Kondisi 2:</b> Pusat lingkaran O terletak di dalam sudut keliling &ang;BAC. Garis bantu diameter AD (putus-putus) membagi sudut menjadi dua bagian yang dijumlahkan.'
+    },
+    3: {
+      a: 10, c: 30, rangeStart: 60, rangeEnd: 140, showD: true,
+      desc: '<b>Kondisi 3:</b> Pusat lingkaran O terletak di luar sudut keliling &ang;BAC. Garis bantu diameter AD (putus-putus) digunakan untuk pengurangan dua sudut.'
+    }
+  };
+
+  let currentPreset = 1;
+  let bAngleDeg = 90;
+  let pendingAngle = 90;
+  let needsUpdate = true;
+  let isDraggingB = false;
+  let isAutoPlaying = false;
+  let autoT = 0.5;
+  let autoDir = 1;
+  let lastMode = 'central';   // 'central' | 'inscribed' -> menentukan arah step-breakdown kalkulator
+
+  // Hasil perhitungan live (dipakai lintas fungsi render)
+  let latestCentralDeg = 0;
+  let latestInscribedDeg = 0;
+  let latestAngAOB = 0;
+  let latestBaseAngle = 0;
+  let latestBAD = null, latestCAD = null, latestBOD = null, latestCOD = null;
+  let latestRelationType = null; // 'sum' | 'diff_cad_bad' | 'diff_bad_cad'
+
+  /* ======================================================================
+     HELPER MATEMATIKA
+  ====================================================================== */
+  function toRad(d){ return d * Math.PI / 180; }
+  function toDeg(r){ return r * 180 / Math.PI; }
+  function norm360(deg){ let d = deg % 360; if (d < 0) d += 360; return d; }
+  function normRad(a){ let r = a % (2*Math.PI); if (r < 0) r += 2*Math.PI; return r; }
+  function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
+  function ccwDiffDeg(from, to){ let d = (to - from) % 360; if (d < 0) d += 360; return d; }
+
+  function polarPoint(angleDeg, radius){
+    radius = (radius === undefined) ? R : radius;
+    const r = toRad(angleDeg);
+    return new THREE.Vector3(radius * Math.cos(r), radius * Math.sin(r), 0);
+  }
+
+  function angleOfVec(v){ return Math.atan2(v.y, v.x); }
+
+  // Busur pusat BC yang TIDAK memuat A -> ini busur yang "sama" dengan sudut keliling BAC
+  function computeCentralArc(aA, aB, aC){
+    aA = norm360(aA); aB = norm360(aB); aC = norm360(aC);
+    const arc1 = ccwDiffDeg(aB, aC);       // busur searah CCW dari B ke C
+    const posA = ccwDiffDeg(aB, aA);       // posisi A relatif (CCW dari B)
+    const eps = 1e-6;
+    if (posA > eps && posA < arc1 - eps){
+      // arc1 memuat A -> pakai busur satunya (CCW dari C ke B)
+      return { startAngleDeg: aC, sweepDeg: 360 - arc1 };
+    }
+    return { startAngleDeg: aB, sweepDeg: arc1 };
+  }
+
+  // Sudut minimal (selalu <= 180 derajat / PI radian) antara dua arah vektor
+  function minimalArcBetween(aFromRad, aToRad){
+    const diff = normRad(aToRad - aFromRad);
+    if (diff > Math.PI){
+      return { start: aToRad, sweep: 2*Math.PI - diff };
+    }
+    return { start: aFromRad, sweep: diff };
+  }
+
+  function mapSliderToAngle(sliderVal){
+    const p = PRESETS[currentPreset];
+    return p.rangeStart + (sliderVal / 180) * (p.rangeEnd - p.rangeStart);
+  }
+  function mapAngleToSlider(angleDeg){
+    const p = PRESETS[currentPreset];
+    return ((angleDeg - p.rangeStart) / (p.rangeEnd - p.rangeStart)) * 180;
+  }
+
+  // Rentang sudut pusat & sudut keliling yang bisa dicapai B pada preset saat ini
+  function getCentralBounds(preset){
+    const c1 = computeCentralArc(preset.a, preset.rangeStart, preset.c).sweepDeg;
+    const c2 = computeCentralArc(preset.a, preset.rangeEnd, preset.c).sweepDeg;
+    return { min: Math.min(c1, c2), max: Math.max(c1, c2) };
+  }
+  function getInscribedBounds(preset){
+    const cb = getCentralBounds(preset);
+    return { min: cb.min / 2, max: cb.max / 2 };
+  }
+
+  // Cari posisi sudut B (derajat) yang menghasilkan sudut pusat = targetCentralDeg,
+  // dengan bisection numerik (fungsi central(B) monoton naik/turun pada rentang preset).
+  function solveBForCentral(targetCentralDeg){
+    const preset = PRESETS[currentPreset];
+    let lo = preset.rangeStart, hi = preset.rangeEnd;
+    const fLo = computeCentralArc(preset.a, lo, preset.c).sweepDeg;
+    const fHi = computeCentralArc(preset.a, hi, preset.c).sweepDeg;
+    const increasing = fHi >= fLo;
+    const target = clamp(targetCentralDeg, Math.min(fLo, fHi), Math.max(fLo, fHi));
+    for (let i = 0; i < 50; i++){
+      const mid = (lo + hi) / 2;
+      const fMid = computeCentralArc(preset.a, mid, preset.c).sweepDeg;
+      if (increasing){
+        if (fMid < target) lo = mid; else hi = mid;
+      } else {
+        if (fMid > target) lo = mid; else hi = mid;
+      }
+    }
+    return (lo + hi) / 2;
+  }
+
+  // Pembungkus warna teks agar 100% sinkron dengan warna objek 3D
+  function cC(t){ return '<span class="clr-c">' + t + '</span>'; }
+  function cI(t){ return '<span class="clr-i">' + t + '</span>'; }
+  function cR(t){ return '<span class="clr-r">' + t + '</span>'; }
+  function cD(t){ return '<span class="clr-d">' + t + '</span>'; }
+  function cG(t){ return '<span class="clr-g">' + t + '</span>'; }
+
+  /* ======================================================================
+     SETUP THREE.JS
+  ====================================================================== */
+  const container = document.getElementById('canvas-container');
+
+  const scene = new THREE.Scene();
+
+  const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 200);
+  const INITIAL_CAM_POS = new THREE.Vector3(0, 0.4, 14.5);
+  const INITIAL_TARGET  = new THREE.Vector3(0, 0, 0);
+  camera.position.copy(INITIAL_CAM_POS);
+  camera.lookAt(INITIAL_TARGET);
+
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  container.appendChild(renderer.domElement);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.copy(INITIAL_TARGET);
+  controls.enableDamping = !prefersReducedMotion;
+  controls.dampingFactor = 0.07;
+  controls.minDistance = 6;
+  controls.maxDistance = 32;
+  controls.update();
+
+  // Pencahayaan
+  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+  const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+  dirLight1.position.set(6, 9, 11);
+  scene.add(dirLight1);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.28);
+  dirLight2.position.set(-8, -4, -6);
+  scene.add(dirLight2);
+
+  /* ======================================================================
+     PEMBUAT GEOMETRI / MESH REUSABLE
+  ====================================================================== */
+  function makeSphere(radius, color, emissive, emissiveIntensity){
+    const geo = new THREE.SphereGeometry(radius, 28, 18);
+    const mat = new THREE.MeshStandardMaterial({
+      color: color, roughness: 0.35, metalness: 0.12,
+      emissive: (emissive === undefined ? 0x000000 : emissive),
+      emissiveIntensity: (emissiveIntensity === undefined ? 0 : emissiveIntensity)
+    });
+    return new THREE.Mesh(geo, mat);
+  }
+
+  function makeLabel(text, colorHex){
+    const canvas = document.createElement('canvas');
+    canvas.width = 160; canvas.height = 160;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,160,160);
+    ctx.font = '800 100px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = 'rgba(6,8,14,0.9)';
+    ctx.strokeText(text, 80, 88);
+    ctx.fillStyle = colorHex;
+    ctx.fillText(text, 80, 88);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent:true, depthTest:false, depthWrite:false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.95, 0.95, 1);
+    sprite.renderOrder = 999;
+    return sprite;
+  }
+
+  function makeThickLine(p1, p2, color, radius, opacity){
+    opacity = (opacity === undefined) ? 1 : opacity;
+    const dir = new THREE.Vector3().subVectors(p2, p1);
+    const len = dir.length();
+    if (len < 1e-5) return new THREE.Group();
+    const geo = new THREE.CylinderGeometry(radius, radius, len, 10, 1);
+    geo.translate(0, len/2, 0);
+    const mat = new THREE.MeshBasicMaterial({ color: color, transparent: opacity < 1, opacity: opacity });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(p1);
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir.clone().normalize());
+    mesh.quaternion.copy(quat);
+    return mesh;
+  }
+
+  // Garis bantu putus-putus (LineDashedMaterial) — dipakai untuk diameter bantu AD
+  function makeDashedLine(p1, p2, color, dashSize, gapSize){
+    const zOff = 0.02;
+    const pts = [
+      new THREE.Vector3(p1.x, p1.y, p1.z + zOff),
+      new THREE.Vector3(p2.x, p2.y, p2.z + zOff)
+    ];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineDashedMaterial({ color: color, dashSize: dashSize, gapSize: gapSize, linewidth: 2 });
+    const line = new THREE.Line(geo, mat);
+    line.computeLineDistances();
+    return line;
+  }
+
+  function makeSectorMesh(centerVec3, radius, startAngleRad, sweepRad, color, opacity, zOffset){
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.absarc(0, 0, radius, startAngleRad, startAngleRad + sweepRad, false);
+    shape.lineTo(0, 0);
+    const geo = new THREE.ShapeGeometry(shape, 64);
+    const mat = new THREE.MeshBasicMaterial({ color: color, transparent:true, opacity: opacity, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(centerVec3.x, centerVec3.y, centerVec3.z + (zOffset || 0));
+    return mesh;
+  }
+
+  function makeArcTorus(radius, tubeRadius, startAngleRad, sweepRad, color, opacity){
+    opacity = (opacity === undefined) ? 1 : opacity;
+    const geo = new THREE.TorusGeometry(radius, tubeRadius, 16, 140, Math.max(sweepRad, 0.001));
+    const mat = new THREE.MeshBasicMaterial({ color: color, transparent: opacity < 1, opacity: opacity });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.z = startAngleRad;
+    return mesh;
+  }
+
+  function disposeObject3D(root){
+    root.traverse(function(child){
+      if (child.geometry) child.geometry.dispose();
+      if (child.material){
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach(function(m){
+          if (m.map) m.map.dispose();
+          m.dispose();
+        });
+      }
+    });
+  }
+
+  /* ======================================================================
+     OBJEK STATIS (tidak berubah antar-update): lingkaran utama & titik O
+  ====================================================================== */
+  const staticGroup = new THREE.Group();
+  scene.add(staticGroup);
+
+  const mainCircle = makeArcTorus(R, 0.035, 0, Math.PI*2 - 0.0001, 0x55617a, 1);
+  staticGroup.add(mainCircle);
+
+  const O_POS = new THREE.Vector3(0,0,0);
+  const oSphere = makeSphere(0.26, 0xfff2cf, 0xfff2cf, 0.45);
+  oSphere.position.copy(O_POS);
+  staticGroup.add(oSphere);
+  const oLabel = makeLabel('O', '#fff2cf');
+  oLabel.position.set(0.05, -0.55, 0.1);
+  staticGroup.add(oLabel);
+
+  /* ======================================================================
+     GRUP DINAMIS: dibangun ulang setiap kali posisi B / preset berubah
+  ====================================================================== */
+  const dynamicGroup = new THREE.Group();
+  scene.add(dynamicGroup);
+
+  let currentBHitMesh = null; // untuk raycast drag (target lebih besar dari bola B)
+
+  function labelOffset(point){
+    const dir = point.clone().normalize();
+    if (dir.lengthSq() < 1e-6) dir.set(0,1,0);
+    return point.clone().addScaledVector(dir, 0.62);
+  }
+
+  function rebuildDynamicGroup(){
+    // buang objek lama
+    for (let i = dynamicGroup.children.length - 1; i >= 0; i--){
+      const obj = dynamicGroup.children[i];
+      dynamicGroup.remove(obj);
+      disposeObject3D(obj);
+    }
+
+    const preset = PRESETS[currentPreset];
+    const A = polarPoint(preset.a);
+    const C = polarPoint(preset.c);
+    const B = polarPoint(bAngleDeg);
+
+    /* ---- garis-garis utama ---- */
+    dynamicGroup.add(makeThickLine(A, C, 0x8a93a6, 0.045, 0.85));           // Diameter/tali busur AC (abu-abu redup)
+    dynamicGroup.add(makeThickLine(O_POS, B, 0x00e5ff, 0.05, 1));           // Jari-jari OB (cyan)
+    dynamicGroup.add(makeThickLine(A, B, 0x00ff88, 0.055, 1));              // Sisi sudut keliling AB (hijau menyala)
+    dynamicGroup.add(makeThickLine(B, C, 0x00ff88, 0.055, 1));              // Sisi sudut keliling BC (hijau menyala)
+
+    /* ---- sudut pusat: busur BC yang TIDAK memuat A ---- */
+    const central = computeCentralArc(preset.a, bAngleDeg, preset.c);
+    const centralStartRad = toRad(central.startAngleDeg);
+    const centralSweepRad = toRad(central.sweepDeg);
+    latestCentralDeg = central.sweepDeg;
+
+    dynamicGroup.add(makeSectorMesh(O_POS, 3.55, centralStartRad, centralSweepRad, 0xffa500, 0.38, 0.012));
+    dynamicGroup.add(makeArcTorus(R, 0.095, centralStartRad, centralSweepRad, 0xffd700, 0.98)); // busur BC ditebalkan (emas bright)
+
+    /* ---- sudut keliling di A ---- */
+    const angAB = angleOfVec(new THREE.Vector3().subVectors(B, A));
+    const angAC = angleOfVec(new THREE.Vector3().subVectors(C, A));
+    const inscribedArc = minimalArcBetween(angAB, angAC);
+    latestInscribedDeg = toDeg(inscribedArc.sweep);
+
+    dynamicGroup.add(makeSectorMesh(A, 1.9, inscribedArc.start, inscribedArc.sweep, 0x00ff88, 0.4, 0.016));
+
+    /* ---- segitiga AOB: sudut alas (berlaku umum, semua kondisi) ---- */
+    const angAOBArc = minimalArcBetween(toRad(preset.a), toRad(bAngleDeg));
+    latestAngAOB = toDeg(angAOBArc.sweep);
+    latestBaseAngle = (180 - latestAngAOB) / 2;
+
+    /* ---- titik A, B, C + label ---- */
+    const aSphere = makeSphere(0.22, 0x7dd3fc, 0x7dd3fc, 0.2);
+    aSphere.position.copy(A);
+    dynamicGroup.add(aSphere);
+    const aLabel = makeLabel('A', '#7dd3fc');
+    aLabel.position.copy(labelOffset(A));
+    dynamicGroup.add(aLabel);
+
+    const cSphere = makeSphere(0.22, 0xcbd5e1, 0xcbd5e1, 0.15);
+    cSphere.position.copy(C);
+    dynamicGroup.add(cSphere);
+    const cLabel = makeLabel('C', '#cbd5e1');
+    cLabel.position.copy(labelOffset(C));
+    dynamicGroup.add(cLabel);
+
+    const bSphere = makeSphere(0.3, 0xff3b4a, 0xff3b4a, 0.7);
+    bSphere.position.copy(B);
+    dynamicGroup.add(bSphere);
+    const bLabel = makeLabel('B', '#ff6470');
+    bLabel.position.copy(labelOffset(B));
+    dynamicGroup.add(bLabel);
+
+    // target invisible untuk drag (lebih besar agar mudah disentuh di mobile)
+    const hitGeo = new THREE.SphereGeometry(0.75, 12, 8);
+    const hitMat = new THREE.MeshBasicMaterial({ visible:false });
+    currentBHitMesh = new THREE.Mesh(hitGeo, hitMat);
+    currentBHitMesh.position.copy(B);
+    dynamicGroup.add(currentBHitMesh);
+
+    /* ---- garis bantu diameter AD putus-putus (khusus Kondisi 2 & 3, hilang di Kondisi 1) ---- */
+    latestBAD = null; latestCAD = null; latestBOD = null; latestCOD = null; latestRelationType = null;
+
+    if (preset.showD){
+      const dAngle = norm360(preset.a + 180);
+      const D = polarPoint(dAngle);
+
+      dynamicGroup.add(makeDashedLine(A, D, 0xff007f, 0.28, 0.16));         // Garis bantu diameter AD (pink putus-putus)
+      const dSphere = makeSphere(0.18, 0xff2f9e, 0xff2f9e, 0.3);
+      dSphere.position.copy(D);
+      dynamicGroup.add(dSphere);
+      const dLabel = makeLabel('D', '#ff6fc4');
+      dLabel.position.copy(labelOffset(D));
+      dynamicGroup.add(dLabel);
+
+      const angAD = angleOfVec(new THREE.Vector3().subVectors(D, A));
+      latestBAD = toDeg(minimalArcBetween(angAB, angAD).sweep);
+      latestCAD = toDeg(minimalArcBetween(angAC, angAD).sweep);
+      latestBOD = computeCentralArc(preset.a, bAngleDeg, dAngle).sweepDeg;
+      latestCOD = computeCentralArc(preset.a, preset.c, dAngle).sweepDeg;
+
+      // Deteksi otomatis apakah relasinya penjumlahan (D di antara B,C) atau pengurangan,
+      // divalidasi terhadap sudut keliling hasil hitung langsung (ground truth).
+      const sumVal = latestBAD + latestCAD;
+      const diffCadBad = latestCAD - latestBAD;
+      if (Math.abs(sumVal - latestInscribedDeg) < 0.05){
+        latestRelationType = 'sum';
+      } else if (Math.abs(diffCadBad - latestInscribedDeg) < 0.05){
+        latestRelationType = 'diff_cad_bad';
+      } else {
+        latestRelationType = 'diff_bad_cad';
+      }
+    }
+
+    updateInfoPanel();
+  }
+
+  /* ======================================================================
+     PANEL INFORMASI (UI overlay)
+  ====================================================================== */
+  const valCentralEl   = document.getElementById('valCentral');
+  const valInscribedEl = document.getElementById('valInscribed');
+  const formulaTextEl  = document.getElementById('formulaText');
+  const ratioCheckEl   = document.getElementById('ratioCheck');
+  const kondisiDescEl  = document.getElementById('kondisiDesc');
+  const conditionProofEl = document.getElementById('conditionProof');
+  const bamAOBEl   = document.getElementById('bamAOB');
+  const bamBaseEl  = document.getElementById('bamBase');
+  const bamAOB2El  = document.getElementById('bamAOB2');
+  const bamBase2El = document.getElementById('bamBase2');
+  const inputCentralEl   = document.getElementById('inputCentral');
+  const inputInscribedEl = document.getElementById('inputInscribed');
+  const rangeHintCentralEl   = document.getElementById('rangeHintCentral');
+  const rangeHintInscribedEl = document.getElementById('rangeHintInscribed');
+  const stepBreakdownEl  = document.getElementById('stepBreakdown');
+
+  function isFocused(el){ return document.activeElement === el; }
+
+  function updateRangeHints(){
+    const preset = PRESETS[currentPreset];
+    const cb = getCentralBounds(preset);
+    const ib = getInscribedBounds(preset);
+    inputCentralEl.min = cb.min.toFixed(1);
+    inputCentralEl.max = cb.max.toFixed(1);
+    inputInscribedEl.min = ib.min.toFixed(1);
+    inputInscribedEl.max = ib.max.toFixed(1);
+    rangeHintCentralEl.textContent = 'rentang: ' + cb.min.toFixed(1) + '\u00B0\u2013' + cb.max.toFixed(1) + '\u00B0';
+    rangeHintInscribedEl.textContent = 'rentang: ' + ib.min.toFixed(1) + '\u00B0\u2013' + ib.max.toFixed(1) + '\u00B0';
+  }
+
+  function renderStepBreakdown(){
+    const X = latestCentralDeg.toFixed(1);
+    const Y = latestInscribedDeg.toFixed(1);
+    let html;
+    if (lastMode === 'inscribed'){
+      html =
+        '<div class="step-title">Diketahui: ' + cI('&ang;BAC') + ' = ' + Y + '&deg; (sudut keliling)</div>' +
+        '<div class="step-line"><span class="step-num">1.</span> Rumus dasar: ' + cC('&ang;BOC') + ' = 2 &times; ' + cI('&ang;BAC') + '</div>' +
+        '<div class="step-line"><span class="step-num">2.</span> Substitusi: ' + cC('&ang;BOC') + ' = 2 &times; ' + Y + '&deg;</div>' +
+        '<div class="step-line result"><span class="step-num">3.</span> Hasil: ' + cC('&ang;BOC') + ' = <b>' + X + '&deg;</b></div>';
+    } else {
+      html =
+        '<div class="step-title">Diketahui: ' + cC('&ang;BOC') + ' = ' + X + '&deg; (sudut pusat)</div>' +
+        '<div class="step-line"><span class="step-num">1.</span> Rumus dasar: ' + cI('&ang;BAC') + ' = &frac12; &times; ' + cC('&ang;BOC') + '</div>' +
+        '<div class="step-line"><span class="step-num">2.</span> Substitusi: ' + cI('&ang;BAC') + ' = &frac12; &times; ' + X + '&deg;</div>' +
+        '<div class="step-line result"><span class="step-num">3.</span> Hasil: ' + cI('&ang;BAC') + ' = <b>' + Y + '&deg;</b></div>';
+    }
+    html += '<div class="step-note">' + cR('&Delta;AOB') + ' sama kaki karena ' + cR('OA = OB = OC = r') + ' (jari-jari lingkaran), sehingga ' + cR('&ang;OAB = &ang;OBA') + '. Sifat inilah dasar geometris hubungan ' + cC('&ang;BOC') + ' = 2 &times; ' + cI('&ang;BAC') + '.</div>';
+    stepBreakdownEl.innerHTML = html;
+  }
+
+  function renderBaseAngleModule(){
+    const aobTxt = latestAngAOB.toFixed(1) + '\u00B0';
+    const baseTxt = latestBaseAngle.toFixed(1) + '\u00B0';
+    bamAOBEl.textContent = aobTxt;
+    bamBaseEl.textContent = baseTxt;
+    bamAOB2El.textContent = aobTxt;
+    bamBase2El.textContent = baseTxt;
+  }
+
+  function renderConditionProof(){
+    const preset = PRESETS[currentPreset];
+    const X = latestCentralDeg.toFixed(1);
+    const Y = latestInscribedDeg.toFixed(1);
+    let html;
+
+    if (!preset.showD){
+      const base = latestBaseAngle.toFixed(1);
+      html =
+        '<div class="cp-title">Pembuktian Langsung (Kondisi 1)</div>' +
+        '<div class="cp-line">Karena OA = OB = r, segitiga ' + cR('&Delta;AOB') + ' sama kaki, sehingga ' + cR('&ang;OAB = &ang;OBA') + ' = ' + base + '&deg;.</div>' +
+        '<div class="cp-line">' + cC('&ang;BOC') + ' adalah sudut luar segitiga AOB di titik O (karena A, O, C segaris), maka: ' +
+          cC('&ang;BOC') + ' = ' + cR('&ang;OAB + &ang;OBA') + ' = 2&times;' + base + '&deg; = ' + X + '&deg;.</div>' +
+        '<div class="cp-line result">Karena ' + cR('&ang;OAB') + ' = ' + cI('&ang;BAC') + ' (O berada pada sisi AC), terbukti: ' +
+          cC('&ang;BOC') + ' = 2&times;' + cI('&ang;BAC') + ' = 2&times;' + Y + '&deg; = ' + X + '&deg;.</div>';
+    } else if (latestRelationType === 'sum'){
+      html =
+        '<div class="cp-title">Pembuktian via Garis Bantu ' + cD('AD') + ' (Kondisi 2 &mdash; Penjumlahan)</div>' +
+        '<div class="cp-line">1. ' + cI('&ang;BAC') + ' = &ang;BAD + &ang;CAD</div>' +
+        '<div class="cp-line">2. Substitusi Kondisi 1: &ang;BAD = &frac12;&times;&ang;BOD = &frac12;&times;' + latestBOD.toFixed(1) + '&deg; = ' + latestBAD.toFixed(1) + '&deg;, dan &ang;CAD = &frac12;&times;&ang;COD = &frac12;&times;' + latestCOD.toFixed(1) + '&deg; = ' + latestCAD.toFixed(1) + '&deg;</div>' +
+        '<div class="cp-line result">3. Faktorisasi: ' + cI('&ang;BAC') + ' = &frac12;&times;(&ang;BOD + &ang;COD) = &frac12;&times;' + cC('&ang;BOC') + ' = &frac12;&times;' + X + '&deg; = ' + Y + '&deg;</div>';
+    } else {
+      const isCadBad = (latestRelationType === 'diff_cad_bad');
+      const bigLabel = isCadBad ? 'CAD' : 'BAD';
+      const smallLabel = isCadBad ? 'BAD' : 'CAD';
+      const bigCentralLabel = isCadBad ? 'COD' : 'BOD';
+      const smallCentralLabel = isCadBad ? 'BOD' : 'COD';
+      const bigVal = isCadBad ? latestCAD : latestBAD;
+      const smallVal = isCadBad ? latestBAD : latestCAD;
+      const bigCentralVal = isCadBad ? latestCOD : latestBOD;
+      const smallCentralVal = isCadBad ? latestBOD : latestCOD;
+      html =
+        '<div class="cp-title">Pembuktian via Garis Bantu ' + cD('AD') + ' (Kondisi 3 &mdash; Pengurangan)</div>' +
+        '<div class="cp-line">1. ' + cI('&ang;BAC') + ' = &ang;' + bigLabel + ' &minus; &ang;' + smallLabel + '</div>' +
+        '<div class="cp-line">2. Substitusi Kondisi 1: &ang;' + bigLabel + ' = &frac12;&times;&ang;' + bigCentralLabel + ' = &frac12;&times;' + bigCentralVal.toFixed(1) + '&deg; = ' + bigVal.toFixed(1) + '&deg;, dan &ang;' + smallLabel + ' = &frac12;&times;&ang;' + smallCentralLabel + ' = &frac12;&times;' + smallCentralVal.toFixed(1) + '&deg; = ' + smallVal.toFixed(1) + '&deg;</div>' +
+        '<div class="cp-line result">3. Faktorisasi: ' + cI('&ang;BAC') + ' = &frac12;&times;(&ang;' + bigCentralLabel + ' &minus; &ang;' + smallCentralLabel + ') = &frac12;&times;' + cC('&ang;BOC') + ' = &frac12;&times;' + X + '&deg; = ' + Y + '&deg;</div>';
+    }
+
+    conditionProofEl.innerHTML = html;
+  }
+
+  function updateInfoPanel(){
+    valCentralEl.textContent = latestCentralDeg.toFixed(1) + '\u00B0';
+    valInscribedEl.textContent = latestInscribedDeg.toFixed(1) + '\u00B0';
+    formulaTextEl.innerHTML = cC('&ang;BOC') + ' = 2 &times; ' + cI('&ang;BAC') + ' &nbsp;&#10142;&nbsp; ' +
+      latestCentralDeg.toFixed(1) + '\u00B0 = 2 &times; ' + latestInscribedDeg.toFixed(1) + '\u00B0';
+
+    const ratio = latestInscribedDeg > 0.0001 ? (latestCentralDeg / latestInscribedDeg) : 0;
+    ratioCheckEl.innerHTML = '&#10003;&nbsp; Rasio &ang;BOC / &ang;BAC = ' + ratio.toFixed(2) +
+      ' &mdash; selalu tepat setengah untuk posisi B mana pun.';
+
+    // Sinkronisasi dua arah ke kotak input (jangan timpa kotak yang sedang diketik user)
+    if (!isFocused(inputCentralEl))   inputCentralEl.value   = latestCentralDeg.toFixed(1);
+    if (!isFocused(inputInscribedEl)) inputInscribedEl.value = latestInscribedDeg.toFixed(1);
+
+    renderStepBreakdown();
+    renderBaseAngleModule();
+    renderConditionProof();
+  }
+
+  /* ======================================================================
+     KONTROL UI: slider, preset, animasi, reset kamera
+  ====================================================================== */
+  const thetaSlider   = document.getElementById('thetaSlider');
+  const sliderReadout = document.getElementById('sliderReadout');
+  const presetButtons = document.querySelectorAll('.preset-btn');
+  const playBtn        = document.getElementById('playBtn');
+  const resetViewBtn   = document.getElementById('resetViewBtn');
+  const collapseBtn    = document.getElementById('collapseBtn');
+  const deckBody       = document.getElementById('deckBody');
+  const infoCollapseBtn = document.getElementById('infoCollapseBtn');
+  const infoBody        = document.getElementById('infoBody');
+  const accordionHeader = document.getElementById('accordionHeader');
+  const accordionBody   = document.getElementById('accordionBody');
+
+  function stopAutoPlay(){
+    isAutoPlaying = false;
+    playBtn.innerHTML = '&#9654; Animasikan';
+    playBtn.classList.remove('playing');
+  }
+
+  thetaSlider.addEventListener('input', function(){
+    stopAutoPlay();
+    lastMode = 'central';
+    pendingAngle = mapSliderToAngle(parseFloat(thetaSlider.value));
+    needsUpdate = true;
+  });
+
+  /* ---- Kalkulator sudut: input angka dua arah ---- */
+  inputCentralEl.addEventListener('input', function(){
+    const val = parseFloat(inputCentralEl.value);
+    if (isNaN(val)) return;
+    stopAutoPlay();
+    lastMode = 'central';
+    const preset = PRESETS[currentPreset];
+    const cb = getCentralBounds(preset);
+    const clamped = clamp(val, cb.min, cb.max);
+    pendingAngle = solveBForCentral(clamped);
+    needsUpdate = true;
+  });
+  inputCentralEl.addEventListener('blur', function(){
+    inputCentralEl.value = latestCentralDeg.toFixed(1);
+  });
+
+  inputInscribedEl.addEventListener('input', function(){
+    const val = parseFloat(inputInscribedEl.value);
+    if (isNaN(val)) return;
+    stopAutoPlay();
+    lastMode = 'inscribed';
+    const preset = PRESETS[currentPreset];
+    const ib = getInscribedBounds(preset);
+    const clamped = clamp(val, ib.min, ib.max);
+    pendingAngle = solveBForCentral(clamped * 2);
+    needsUpdate = true;
+  });
+  inputInscribedEl.addEventListener('blur', function(){
+    inputInscribedEl.value = latestInscribedDeg.toFixed(1);
+  });
+
+  presetButtons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const p = parseInt(btn.getAttribute('data-preset'), 10);
+      if (p === currentPreset) return;
+      currentPreset = p;
+      presetButtons.forEach(function(b){ b.classList.toggle('active', b === btn); });
+      kondisiDescEl.innerHTML = PRESETS[p].desc;
+      stopAutoPlay();
+      lastMode = 'central';
+      updateRangeHints();
+      thetaSlider.value = 90;
+      pendingAngle = mapSliderToAngle(90);
+      needsUpdate = true;
+    });
+  });
+
+  playBtn.addEventListener('click', function(){
+    isAutoPlaying = !isAutoPlaying;
+    if (isAutoPlaying){
+      playBtn.innerHTML = '&#10074;&#10074; Berhenti';
+      playBtn.classList.add('playing');
+      autoT = clamp(parseFloat(thetaSlider.value) / 180, 0, 1);
+      autoDir = 1;
+    } else {
+      stopAutoPlay();
+    }
+  });
+
+  resetViewBtn.addEventListener('click', function(){
+    camera.position.copy(INITIAL_CAM_POS);
+    controls.target.copy(INITIAL_TARGET);
+    controls.update();
+  });
+
+  function togglePanel(bodyEl, btnEl, hideLabel, showLabel){
+    bodyEl.classList.toggle('collapsed');
+    const hidden = bodyEl.classList.contains('collapsed');
+    btnEl.innerHTML = hidden ? '&#9652;' : '&#9662;';
+    btnEl.classList.toggle('is-hidden', hidden);
+    btnEl.title = hidden ? showLabel : hideLabel;
+  }
+
+  collapseBtn.addEventListener('click', function(){
+    togglePanel(deckBody, collapseBtn, 'Sembunyikan panel', 'Tampilkan panel');
+  });
+
+  infoCollapseBtn.addEventListener('click', function(){
+    togglePanel(infoBody, infoCollapseBtn, 'Sembunyikan panel', 'Tampilkan panel');
+  });
+
+  accordionHeader.addEventListener('click', function(){
+    accordionBody.classList.toggle('collapsed');
+    accordionHeader.classList.toggle('open', !accordionBody.classList.contains('collapsed'));
+  });
+
+  /* ======================================================================
+     DRAG TITIK B LANGSUNG DI SCENE 3D
+  ====================================================================== */
+  const raycaster = new THREE.Raycaster();
+  const dragPlane = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+
+  function getPointerNDC(evt){
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = ((evt.clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((evt.clientY - rect.top) / rect.height) * 2 + 1;
+    return new THREE.Vector2(x, y);
+  }
+
+  function onPointerDown(evt){
+    if (!currentBHitMesh) return;
+    const ndc = getPointerNDC(evt);
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObject(currentBHitMesh, false);
+    if (hits.length > 0){
+      isDraggingB = true;
+      controls.enabled = false;
+      stopAutoPlay();
+      try { renderer.domElement.setPointerCapture(evt.pointerId); } catch(e){}
+      evt.preventDefault();
+    }
+  }
+
+  function onPointerMove(evt){
+    if (!isDraggingB) return;
+    const ndc = getPointerNDC(evt);
+    raycaster.setFromCamera(ndc, camera);
+    const hitPoint = new THREE.Vector3();
+    const hit = raycaster.ray.intersectPlane(dragPlane, hitPoint);
+    if (!hit) return;
+    let angleDeg = norm360(toDeg(Math.atan2(hitPoint.y, hitPoint.x)));
+    const preset = PRESETS[currentPreset];
+    angleDeg = clamp(angleDeg, preset.rangeStart, preset.rangeEnd);
+    pendingAngle = angleDeg;
+    lastMode = 'central';
+    needsUpdate = true;
+  }
+
+  function onPointerUp(evt){
+    if (!isDraggingB) return;
+    isDraggingB = false;
+    controls.enabled = true;
+    try { renderer.domElement.releasePointerCapture(evt.pointerId); } catch(e){}
+  }
+
+  renderer.domElement.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
+
+  /* ======================================================================
+     RESIZE
+  ====================================================================== */
+  window.addEventListener('resize', function(){
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  /* ======================================================================
+     LOOP ANIMASI
+  ====================================================================== */
+  function animate(){
+    requestAnimationFrame(animate);
+
+    if (isAutoPlaying){
+      autoT += autoDir * (prefersReducedMotion ? 0.002 : 0.0045);
+      if (autoT >= 1){ autoT = 1; autoDir = -1; }
+      else if (autoT <= 0){ autoT = 0; autoDir = 1; }
+      pendingAngle = mapSliderToAngle(autoT * 180);
+      lastMode = 'central';
+      needsUpdate = true;
+    }
+
+    if (needsUpdate){
+      bAngleDeg = pendingAngle;
+      const sliderVal = clamp(mapAngleToSlider(bAngleDeg), 0, 180);
+      thetaSlider.value = sliderVal;
+      sliderReadout.textContent = Math.round(sliderVal) + '\u00B0';
+      rebuildDynamicGroup();
+      needsUpdate = false;
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  /* ======================================================================
+     INISIALISASI
+  ====================================================================== */
+  updateRangeHints();
+  rebuildDynamicGroup();
+  animate();
+
+})();
+</script>
+</body>
+</html>
